@@ -860,7 +860,7 @@ async function importQuestions(e){
       const data=JSON.parse(ev.target.result);
       if(data.questions&&Array.isArray(data.questions)){
         if(confirm('Εισαγωγή '+data.questions.length+' ερωτήσεων;')){
-          const rows=data.questions.map(q=>({subject_id:adminSubjectId,text:q.text,answer:q.answer,page:q.page||''}));
+          const rows=data.questions.map(q=>({subject_id:adminSubjectId,text:q.text,answer:q.answer,page:q.page||'',image_url:q.image_url||''}));
           await sb.from('questions').insert(rows);
           await loadAdminQuestions();
           alert('✓ Προστέθηκαν '+data.questions.length+' ερωτήσεις!');
