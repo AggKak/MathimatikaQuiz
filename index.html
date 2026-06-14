@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz Σωστού - Λάθους</title>
+<title>Quiz Σωστού Λάθους</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
@@ -264,7 +264,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
       <span class="greek-letter">∑</span>
       <span class="subtitle">Πλατφόρμα Εξάσκησης</span>
     </div>
-    <p class="login-title">Μαθηματικά Γυμνασίου - Λυκείου</p>
+    <p class="login-title">Μαθηματικά</p>
     <div class="field">
       <label>Ονοματεπώνυμο</label>
       <input type="text" id="login-name" placeholder="π.χ. Γιώργος Παπαδόπουλος" autocomplete="name">
@@ -340,7 +340,9 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
   <div class="quiz-body">
     <div class="dot-row" id="dot-row"></div>
     <span class="q-counter" id="quiz-q-num"></span>
-    <div id="quiz-q-img" class="hidden" style="margin-bottom:1rem;text-align:center"><img id="quiz-q-img-src" src="" alt="" style="max-width:100%;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openImgOverlay(this.src,'')"></div>
+    <div id="quiz-q-img" class="hidden" style="margin-bottom:1rem;text-align:center">
+      <img id="quiz-q-img-src" src="" alt="" style="max-width:100%;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer" onclick="openImgOverlay(this.src,'')">
+    </div>
     <p class="q-statement" id="quiz-q-text"></p>
     <div class="answer-btns">
       <button class="ans-btn" id="btn-true" onclick="selectAnswer(true)"><span class="bl">Σ</span>Σωστό</button>
@@ -693,10 +695,16 @@ function renderQuizQ(){
   document.getElementById('quiz-q-num').textContent=(cur+1)+'.';
   document.getElementById('quiz-q-text').textContent=q.text;
   renderMath(document.getElementById('quiz-q-text'));
+  // Εμφάνιση εικόνας αν υπάρχει
   const imgDiv=document.getElementById('quiz-q-img');
-const imgSrc=document.getElementById('quiz-q-img-src');
-if(q.image_url){imgSrc.src=q.image_url;imgDiv.classList.remove('hidden');}
-else{imgDiv.classList.add('hidden');imgSrc.src='';}
+  const imgSrc=document.getElementById('quiz-q-img-src');
+  if(q.image_url){
+    imgSrc.src=q.image_url;
+    imgDiv.classList.remove('hidden');
+  } else {
+    imgDiv.classList.add('hidden');
+    imgSrc.src='';
+  }
   const ans=answers[cur];
   document.getElementById('btn-true').className='ans-btn'+(ans===true?' selected':'');
   document.getElementById('btn-false').className='ans-btn'+(ans===false?' selected':'');
@@ -787,12 +795,14 @@ function renderAdminQList(){
   if(!adminQuestions.length){el.innerHTML='<div class="empty-state"><div class="big">📝</div><p>Δεν υπάρχουν ερωτήσεις.</p></div>';return}
   el.innerHTML=adminQuestions.map((q,i)=>`
     <div class="item-card">
+      ${q.image_url?`<img src="${esc(q.image_url)}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;flex-shrink:0;cursor:pointer;border:1px solid var(--border)" onclick="openImgOverlay('${esc(q.image_url)}','')">`:``}
       <span class="item-num">${i+1}</span>
       <div class="item-content">
         <p class="item-title">${esc(q.text)}</p>
         <div class="item-meta">
           <span class="${q.answer?'badge badge-green':'badge badge-red'}">${q.answer?'✓ Σωστό':'✗ Λάθος'}</span>
           ${q.page?`<span>📄 ${esc(q.page)}</span>`:''}
+          ${q.image_url?`<span>🖼 Εικόνα</span>`:''}
         </div>
       </div>
       <div class="item-actions">
@@ -806,6 +816,7 @@ function openAddModal(){
   document.getElementById('modal-q-title').textContent='Νέα Ερώτηση';
   document.getElementById('q-text-input').value='';
   document.getElementById('q-page-input').value='';
+  document.getElementById('q-image-url-input').value='';
   document.querySelectorAll('input[name="q-answer"]').forEach(r=>r.checked=false);
   document.getElementById('q-edit-id').value='';
   openModal('modal-question');
@@ -816,6 +827,7 @@ function openEditModal(id){
   document.getElementById('modal-q-title').textContent='Επεξεργασία';
   document.getElementById('q-text-input').value=q.text;
   document.getElementById('q-page-input').value=q.page||'';
+  document.getElementById('q-image-url-input').value=q.image_url||'';
   document.querySelectorAll('input[name="q-answer"]').forEach(r=>r.checked=(r.value===(q.answer?'true':'false')));
   document.getElementById('q-edit-id').value=id;
   openModal('modal-question');
@@ -829,8 +841,8 @@ async function saveQuestion(){
   if(!ansEl){alert('Επιλέξτε απάντηση.');return}
   const answer=ansEl.value==='true';
   const editId=document.getElementById('q-edit-id').value;
-  if(editId==='') await sb.from('questions').insert({subject_id:adminSubjectId,text,answer,page});
-  else await sb.from('questions').update({text,answer,page}).eq('id',parseInt(editId));
+  if(editId==='') await sb.from('questions').insert({subject_id:adminSubjectId,text,answer,page,image_url});
+  else await sb.from('questions').update({text,answer,page,image_url}).eq('id',parseInt(editId));
   closeModal('modal-question');
   await loadAdminQuestions();
 }
