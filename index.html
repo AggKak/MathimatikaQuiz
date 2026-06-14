@@ -340,6 +340,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
   <div class="quiz-body">
     <div class="dot-row" id="dot-row"></div>
     <span class="q-counter" id="quiz-q-num"></span>
+    <div id="quiz-q-img" class="hidden" style="margin-bottom:1rem;text-align:center"><img id="quiz-q-img-src" src="" alt="" style="max-width:100%;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="openImgOverlay(this.src,'')"></div>
     <p class="q-statement" id="quiz-q-text"></p>
     <div class="answer-btns">
       <button class="ans-btn" id="btn-true" onclick="selectAnswer(true)"><span class="bl">Σ</span>Σωστό</button>
@@ -467,6 +468,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
   <div class="modal">
     <h2 id="modal-q-title">Νέα Ερώτηση</h2>
     <div class="form-group"><label>Κείμενο</label><textarea id="q-text-input" placeholder="π.χ. Η παράγωγος του $x^2$ είναι $2x$."></textarea></div>
+    <div class="form-group"><label>URL Εικόνας (προαιρετικό)</label><input type="text" id="q-image-url-input" placeholder="https://..."></div>
     <div class="form-row">
       <div class="form-group">
         <label>Απάντηση</label>
@@ -691,6 +693,10 @@ function renderQuizQ(){
   document.getElementById('quiz-q-num').textContent=(cur+1)+'.';
   document.getElementById('quiz-q-text').textContent=q.text;
   renderMath(document.getElementById('quiz-q-text'));
+  const imgDiv=document.getElementById('quiz-q-img');
+const imgSrc=document.getElementById('quiz-q-img-src');
+if(q.image_url){imgSrc.src=q.image_url;imgDiv.classList.remove('hidden');}
+else{imgDiv.classList.add('hidden');imgSrc.src='';}
   const ans=answers[cur];
   document.getElementById('btn-true').className='ans-btn'+(ans===true?' selected':'');
   document.getElementById('btn-false').className='ans-btn'+(ans===false?' selected':'');
@@ -817,6 +823,7 @@ function openEditModal(id){
 async function saveQuestion(){
   const text=document.getElementById('q-text-input').value.trim();
   const page=document.getElementById('q-page-input').value.trim();
+  const image_url=document.getElementById('q-image-url-input').value.trim();
   const ansEl=document.querySelector('input[name="q-answer"]:checked');
   if(!text){alert('Εισάγετε κείμενο.');return}
   if(!ansEl){alert('Επιλέξτε απάντηση.');return}
