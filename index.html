@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Quiz Σωστού Λάθους</title>
+<title>Πλατφόρμα Quiz Φροντιστηρίου</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
@@ -264,7 +264,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
       <span class="greek-letter">∑</span>
       <span class="subtitle">Πλατφόρμα Εξάσκησης</span>
     </div>
-    <p class="login-title">Μαθηματικά</p>
+    <p class="login-title">Μαθηματικά Φροντιστηρίου</p>
     <div class="field">
       <label>Ονοματεπώνυμο</label>
       <input type="text" id="login-name" placeholder="π.χ. Γιώργος Παπαδόπουλος" autocomplete="name">
@@ -320,6 +320,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
         <div class="stat-box"><span class="val" id="home-sessions">0</span><span class="lbl">Δοκιμές</span></div>
       </div>
       <button class="btn-start" onclick="startQuiz()">Έναρξη Quiz →</button>
+      <button class="btn-back-subjects" onclick="showMyHistory()" style="background:#fff;color:var(--accent);border:1px solid var(--accent)">📊 Οι προσπάθειές μου</button>
     </div>
     <div id="home-theory-content" class="hidden">
       <div id="theory-container" class="theory-grid"></div>
@@ -372,7 +373,6 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
     <div class="review-list" id="review-list"></div>
     <div class="results-actions">
       <button class="btn-home" onclick="showHome()">← Αρχική</button>
-      <button class="btn-retry" onclick="startQuiz()">Νέο Quiz →</button>
     </div>
   </div>
 </div>
@@ -447,6 +447,21 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
         <p class="settings-hint" id="a-admin-msg"></p>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- HISTORY SCREEN -->
+<div id="screen-history" class="screen hidden" style="justify-content:flex-start;padding:0;background:var(--paper)">
+  <div class="detail-topbar">
+    <button class="btn-sm" onclick="showHome()">← Πίσω</button>
+    <div>
+      <span id="history-title" style="font-family:var(--font-display);font-size:0.95rem;color:var(--ink)"></span>
+    </div>
+  </div>
+  <div style="padding:1.5rem;max-width:720px;margin:0 auto;width:100%">
+    <div id="history-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.8rem;margin-bottom:1.5rem"></div>
+    <p style="font-size:0.72rem;color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.8rem">Αναλυτικά ανά ομάδα</p>
+    <div id="history-body"></div>
   </div>
 </div>
 
@@ -525,7 +540,7 @@ let currentAdminTab = 'tab-a-questions';
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function show(id){
-  ['screen-loading','screen-login','screen-subject-select','screen-home','screen-quiz','screen-results','screen-admin','screen-detail']
+  ['screen-loading','screen-login','screen-subject-select','screen-home','screen-quiz','screen-results','screen-admin','screen-detail','screen-history']
     .forEach(s=>document.getElementById(s).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 }
@@ -641,7 +656,7 @@ async function showHome(){
     const {count}=await sb.from('questions').select('*',{count:'exact',head:true}).eq('subject_id',currentSubject.id);
     const {count:myCount}=await sb.from('results').select('*',{count:'exact',head:true}).eq('subject_id',currentSubject.id).eq('student_name',currentStudent);
     const total=count||0; const sessions=myCount||0;
-    const tg=Math.ceil(total/20)||1; const gi=sessions%tg;
+    const tg=Math.ceil(total/10)||1; const gi=sessions%tg;
     document.getElementById('home-total').textContent=total;
     document.getElementById('home-group').textContent=(gi+1)+'/'+tg;
     document.getElementById('home-sessions').textContent=sessions;
@@ -670,6 +685,48 @@ async function loadTheory(){
     </div>`).join('');
 }
 function toggleChapter(el){const imgs=el.nextElementSibling;imgs.style.display=imgs.style.display==='none'?'grid':'none';el.querySelector('span:last-child').textContent=imgs.style.display==='none'?'▶':'▼'}
+
+async function showMyHistory(){
+  const {data:groups}=await sb.from('results').select('*').eq('subject_id',currentSubject.id).eq('student_name',currentStudent).order('created_at');
+  show('screen-history');
+  window.scrollTo(0,0);
+  document.getElementById('history-title').textContent=currentStudent+' · '+currentSubject.name;
+  if(!groups||!groups.length){
+    document.getElementById('history-stats').innerHTML='';
+    document.getElementById('history-body').innerHTML='<div class="empty-state"><div class="big">📊</div><p>Δεν υπάρχουν προσπάθειες ακόμα.</p></div>';
+    return;
+  }
+  const tc=groups.reduce((s,r)=>s+r.correct,0);
+  const tq=groups.reduce((s,r)=>s+r.total,0);
+  const pct=Math.round(tc/tq*100);
+  const cls=pct>=70?'high':pct>=50?'mid':'low';
+  const clrMap={high:'var(--accent)',mid:'var(--gold)',low:'var(--red)'};
+  document.getElementById('history-stats').innerHTML=`
+    <div class="res-stat correct"><span class="val">${tc}</span><span class="lbl">Σωστές</span></div>
+    <div class="res-stat wrong"><span class="val">${tq-tc}</span><span class="lbl">Λάθος</span></div>
+    <div class="res-stat pct"><span class="val" style="color:${clrMap[cls]}">${pct}%</span><span class="lbl">Συνολικό</span></div>`;
+  document.getElementById('history-body').innerHTML=groups.map((g,gi)=>{
+    const gpct=Math.round(g.correct/g.total*100);
+    const gcls=gpct>=70?'high':gpct>=50?'mid':'low';
+    const rows=(g.details||[]).map((d,i)=>{
+      const ok=d.user_answer===d.correct_answer;
+      return `<div class="review-item ${ok?'correct':'wrong'}">
+        <span class="review-num">${i+1}</span>
+        <div class="review-text">${esc(d.text)}<div class="your-answer ${ok?'correct':'wrong'}">Απάντησες: <strong>${d.user_answer?'Σωστό':'Λάθος'}</strong>${!ok?` · Σωστό: <strong>${d.correct_answer?'Σωστό':'Λάθος'}</strong>`:''}</div></div>
+        <div class="review-meta"><span class="review-result">${ok?'✓':'✗'}</span>${d.page?`<span class="review-page">📄 ${esc(d.page)}</span>`:''}</div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;gap:0.8rem;margin-bottom:0.8rem;padding:0.7rem 1rem;background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg)">
+        <span style="font-family:var(--font-display);font-size:0.88rem">${g.group_label||'Ομάδα '+(gi+1)}</span>
+        <span class="score-pill ${gcls}">${g.correct}/${g.total} (${gpct}%)</span>
+        <span style="font-size:0.72rem;color:var(--ink3);margin-left:auto">${new Date(g.created_at).toLocaleDateString('el-GR')}</span>
+      </div>
+      ${rows||'<p style="color:var(--ink3);font-size:0.82rem">Δεν υπάρχουν λεπτομέρειες.</p>'}
+    </div>`;
+  }).join('');
+  renderMath(document.getElementById('history-body'));
+}
 function openImgOverlay(url,cap){document.getElementById('img-overlay-src').src=url;document.getElementById('img-overlay-caption').textContent=cap||'';document.getElementById('img-overlay').classList.remove('hidden')}
 function closeImgOverlay(){document.getElementById('img-overlay').classList.add('hidden')}
 
@@ -680,7 +737,7 @@ async function startQuiz(){
   if(!allQs||!allQs.length){alert('Δεν υπάρχουν ερωτήσεις ακόμα.');return}
   const {count:sessions}=await sb.from('results').select('*',{count:'exact',head:true}).eq('subject_id',currentSubject.id).eq('student_name',currentStudent);
   const s=sessions||0;
-  const groupSize=20; const tg=Math.ceil(allQs.length/groupSize);
+  const groupSize=10; const tg=Math.ceil(allQs.length/groupSize);
   const gi=s%tg; const start=gi*groupSize;
   const pool=shuffle(allQs.slice(start,Math.min(start+groupSize,allQs.length)));
   currentSession={qs:pool,answers:new Array(pool.length).fill(null),cur:0,groupIndex:gi,totalGroups:tg};
