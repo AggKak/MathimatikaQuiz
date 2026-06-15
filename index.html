@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Πλατφόρμα Quiz Φροντιστηρίου</title>
+<title>Quiz Σωστού Λάθους</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
@@ -264,7 +264,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
       <span class="greek-letter">∑</span>
       <span class="subtitle">Πλατφόρμα Εξάσκησης</span>
     </div>
-    <p class="login-title">Μαθηματικά Φροντιστηρίου</p>
+    <p class="login-title">Μαθηματικά</p>
     <div class="field">
       <label>Ονοματεπώνυμο</label>
       <input type="text" id="login-name" placeholder="π.χ. Γιώργος Παπαδόπουλος" autocomplete="name">
@@ -371,9 +371,7 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
     </div>
     <p style="font-size:0.72rem;color:var(--ink3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.8rem">Αναλυτικά</p>
     <div class="review-list" id="review-list"></div>
-    <div class="results-actions">
-      <button class="btn-home" onclick="showHome()">← Αρχική</button>
-    </div>
+    <div id="results-actions-div" class="results-actions"></div>
   </div>
 </div>
 
@@ -819,6 +817,10 @@ async function showResults(){
   }
   document.getElementById('review-list').innerHTML=finalHTML;
   renderMath(document.getElementById('review-list'));
+  document.getElementById('results-actions-div').innerHTML=`
+    <button class="btn-home" onclick="showHome()">← Αρχική</button>
+    ${!isLast?`<button class="btn-retry" onclick="startQuiz()">Επόμενο Quiz →</button>`:''}
+  `;
   show('screen-results');
 }
 
