@@ -422,6 +422,14 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
           <button class="btn-add" onclick="openAddModal()">+ Νέα</button>
         </div>
       </div>
+      <!-- Μαζική ανάθεση ομάδας -->
+      <div id="bulk-bar" style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;padding:0.8rem 1rem;background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg)">
+        <input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this)">
+        <label for="select-all-cb" style="font-size:0.82rem;color:var(--ink2)">Επιλογή όλων</label>
+        <input type="text" id="bulk-group-input" placeholder="Όνομα ομάδας" style="border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;font-size:0.82rem;font-family:var(--font-body);width:150px">
+        <button class="btn-sm success" onclick="bulkAssignGroup()">✓ Εφαρμογή</button>
+        <span id="bulk-msg" style="font-size:0.78rem;color:var(--accent)"></span>
+      </div>
       <div id="a-q-list" class="item-list"></div>
     </div>
     <!-- RESULTS TAB -->
@@ -449,9 +457,14 @@ body{font-family:var(--font-body);background:var(--paper);color:var(--ink);min-h
     <div id="tab-a-settings" class="tab-panel">
       <div class="settings-card">
         <h3>Ενεργή Ομάδα Ερωτήσεων</h3>
-        <p style="font-size:0.82rem;color:var(--ink3);margin-bottom:0.8rem">Αφήστε κενό για να εμφανίζονται όλες οι ερωτήσεις.</p>
+        <p style="font-size:0.82rem;color:var(--ink3);margin-bottom:0.8rem">Επίλεξε ποια ομάδα βλέπουν οι μαθητές. «Όλες» = εμφανίζονται όλες.</p>
         <div class="settings-row">
-          <div class="form-group"><label>Ομάδα</label><input type="text" id="a-active-group" placeholder="π.χ. Όρια (κενό=όλες)"></div>
+          <div class="form-group">
+            <label>Ομάδα</label>
+            <select id="a-active-group-select" style="border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:0.9rem;font-family:var(--font-body);color:var(--ink);background:#fff;outline:none;width:100%">
+              <option value="">— Όλες —</option>
+            </select>
+          </div>
           <button class="btn-add" onclick="saveActiveGroup()">Αποθήκευση</button>
         </div>
         <p class="settings-hint" id="a-group-msg"></p>
@@ -980,17 +993,20 @@ async function loadAdminQuestions(){
 function renderAdminQList(){
   const el=document.getElementById('a-q-list');
   document.getElementById('a-q-count').textContent='('+adminQuestions.length+')';
+  document.getElementById('select-all-cb').checked=false;
   if(!adminQuestions.length){el.innerHTML='<div class="empty-state"><div class="big">📝</div><p>Δεν υπάρχουν ερωτήσεις.</p></div>';return}
   el.innerHTML=adminQuestions.map((q,i)=>`
-    <div class="item-card">
+    <div class="item-card" id="qcard-${q.id}">
+      <input type="checkbox" class="q-cb" data-id="${q.id}" style="flex-shrink:0;width:16px;height:16px;cursor:pointer">
       ${q.image_url?`<img src="${esc(q.image_url)}" style="width:50px;height:40px;object-fit:cover;border-radius:4px;flex-shrink:0;cursor:pointer;border:1px solid var(--border)" onclick="openImgOverlay('${esc(q.image_url)}','')">`:``}
       <span class="item-num">${i+1}</span>
       <div class="item-content">
         <p class="item-title">${esc(q.text)}</p>
         <div class="item-meta">
-          <span class="${q.answer?'badge badge-green':'badge badge-red'}">${q.answer?'✓ Σωστό':'✗ Λάθος'}</span>
+          ${q.question_type==='multiple_choice'?'<span class="badge badge-blue">MC</span>':'<span class="badge '+(q.answer?'badge-green':'badge-red')+'">'+(q.answer?'✓ Σωστό':'✗ Λάθος')+'</span>'}
+          ${q.group_name?`<span class="badge" style="background:#e0e7ff;color:#3730a3">📁 ${esc(q.group_name)}</span>`:''}
+          ${q.timer_seconds?`<span>⏱ ${q.timer_seconds}″</span>`:''}
           ${q.page?`<span>📄 ${esc(q.page)}</span>`:''}
-          ${q.image_url?`<span>🖼 Εικόνα</span>`:''}
         </div>
       </div>
       <div class="item-actions">
@@ -999,6 +1015,14 @@ function renderAdminQList(){
       </div>
     </div>`).join('');
   renderMath(el);
+  // Ενημέρωση dropdown ομάδων
+  const groups=[...new Set(adminQuestions.map(q=>q.group_name).filter(Boolean))];
+  const sel=document.getElementById('a-active-group-select');
+  if(sel){
+    sel.innerHTML='<option value="">— Όλες —</option>'+groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    const subj=subjects.find(s=>s.id===adminSubjectId);
+    if(subj&&subj.active_group) sel.value=subj.active_group;
+  }
 }
 function toggleQType(){
   const isMC=document.querySelector('input[name="q-type"]:checked').value==='multiple_choice';
@@ -1204,11 +1228,26 @@ async function deleteImage(id){if(!confirm('Διαγραφή εικόνας;'))r
 
 // Settings
 async function saveActiveGroup(){
-  const ag=document.getElementById('a-active-group').value.trim()||null;
+  const ag=document.getElementById('a-active-group-select').value||null;
   await sb.from('subjects').update({active_group:ag}).eq('id',adminSubjectId);
   subjects=subjects.map(s=>s.id===adminSubjectId?{...s,active_group:ag}:s);
   document.getElementById('a-group-msg').textContent=ag?'✓ Ενεργή ομάδα: '+ag:'✓ Εμφανίζονται όλες οι ερωτήσεις';
   setTimeout(()=>document.getElementById('a-group-msg').textContent='',3000);
+}
+function toggleSelectAll(cb){
+  document.querySelectorAll('.q-cb').forEach(c=>c.checked=cb.checked);
+}
+async function bulkAssignGroup(){
+  const group=document.getElementById('bulk-group-input').value.trim();
+  if(!group){alert('Εισάγετε όνομα ομάδας.');return}
+  const selected=[...document.querySelectorAll('.q-cb:checked')].map(c=>parseInt(c.dataset.id));
+  if(!selected.length){alert('Επιλέξτε ερωτήσεις.');return}
+  await sb.from('questions').update({group_name:group}).in('id',selected);
+  document.getElementById('bulk-msg').textContent='✓ Ανατέθηκε σε '+selected.length+' ερωτήσεις!';
+  setTimeout(()=>document.getElementById('bulk-msg').textContent='',3000);
+  document.getElementById('select-all-cb').checked=false;
+  document.getElementById('bulk-group-input').value='';
+  await loadAdminQuestions();
 }
 async function saveStudentPass(){
   const pass=document.getElementById('a-student-pass').value.trim();
@@ -1239,10 +1278,12 @@ function switchAdminTab(tabId,el){
   else if(tabId==='tab-a-theory') loadAdminTheory();
   else if(tabId==='tab-a-settings'){
     const subj=subjects.find(s=>s.id===adminSubjectId);
-    if(subj){
-      document.getElementById('a-student-pass').value=subj.student_pass;
-      document.getElementById('a-active-group').value=subj.active_group||'';
-    }
+    if(subj) document.getElementById('a-student-pass').value=subj.student_pass;
+    // Φόρτωση ομάδων στο dropdown
+    const groups=[...new Set(adminQuestions.map(q=>q.group_name).filter(Boolean))];
+    const sel=document.getElementById('a-active-group-select');
+    sel.innerHTML='<option value="">— Όλες —</option>'+groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    if(subj&&subj.active_group) sel.value=subj.active_group;
   }
 }
 
